@@ -34,6 +34,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
 .team-score-label { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
 .active-dot { display: inline-block; width: 6px; height: 6px; background: var(--gold); border-radius: 50%; margin-left: 6px; vertical-align: middle; animation: pulse 1.2s infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+#timer-number.warning { color: #EF9F27; }
+#timer-number.danger { color: #E24B4A; }
 
 /* TIMER */
 .timer-wrap { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 1.25rem; }
@@ -199,7 +201,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
   <!-- SETUP -->
   <div id="setup-screen" class="setup-screen">
     <p class="setup-title">Enter team names to begin</p>
-    <p class="setup-sub">20 questions · 2 teams · 10 each · 45 seconds · steal on wrong answers</p>
+    <p class="setup-sub">20 questions · 2 teams · 10 each · steal on wrong answers</p>
     <div class="setup-inputs">
       <div class="setup-input-card"><p class="setup-label">Team 1</p><input class="setup-name-input" id="t1-name" value="Team Paramount" maxlength="24" /></div>
       <div class="setup-input-card"><p class="setup-label">Team 2</p><input class="setup-name-input" id="t2-name" value="Team Hill" maxlength="24" /></div>
@@ -229,21 +231,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
       </div>
     </div>
 
-    <div class="timer-wrap">
-      <div class="timer-ring-wrap">
-        <svg class="timer-svg" width="64" height="64" viewBox="0 0 64 64">
-          <circle class="timer-track" cx="32" cy="32" r="26"/>
-          <circle class="timer-fill" id="timer-fill" cx="32" cy="32" r="26"/>
-        </svg>
-        <span class="timer-number" id="timer-number">45</span>
-      </div>
-      <span class="timer-status" id="timer-status"></span>
-    </div>
-
     <div class="steal-banner" id="steal-banner">
       <p class="steal-banner-title" id="steal-banner-title">Steal opportunity!</p>
       <p class="steal-banner-sub" id="steal-banner-sub">Team Hill — pick an answer to steal for $50</p>
-      <p class="steal-timer" id="steal-timer">10</p>
     </div>
 
     <div class="progress-wrap">
@@ -274,6 +264,10 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
     <div class="actions">
       <button class="lifeline-btn" id="lifeline-btn" onclick="useLifeline()">Remove 2 wrong options (costs $50) — 2 left</button>
       <button class="lifeline-btn" id="start-timer-btn" onclick="beginTimer()" style="display:none; border-color:#4ADE80; color:#4ADE80; background:rgba(74,222,128,0.06);">▶ Start Timer</button>
+      <div id="timer-display" style="display:none; align-items:center; gap:8px;">
+        <span id="timer-number" style="font-family:'Playfair Display',serif; font-size:42px; font-weight:600; color:var(--gold); line-height:1;">45</span>
+        <span style="font-size:12px; color:var(--text-dim);">sec</span>
+      </div>
       <button class="next-btn" id="next-btn" onclick="nextQuestion()">Next question →</button>
     </div>
     <p class="lifeline-note" id="lifeline-note"></p>
@@ -426,7 +420,7 @@ function startTimer() {
   clearInterval(timerInterval);
   timeLeft = TIMER_DURATION;
   updateTimerUI();
-  document.getElementById('timer-status').textContent = '';
+  document.getElementById('timer-display').style.display = 'flex';
   timerInterval = setInterval(() => {
     timeLeft--;
     updateTimerUI();
@@ -435,33 +429,33 @@ function startTimer() {
   }, 1000);
 }
 function stopTimer() { clearInterval(timerInterval); }
-
+function updateTimerUI() {
+  const num = document.getElementById('timer-number');
+  if (!num) return;
+  num.textContent = timeLeft;
+  num.classList.remove('warning','danger');
+  if (timeLeft <= 10) num.classList.add('danger');
+  else if (timeLeft <= 20) num.classList.add('warning');
+}
 function beginTimer() {
   if (answered || stealMode) return;
   timerStarted = true;
   document.getElementById('start-timer-btn').style.display = 'none';
-  document.getElementById('timer-status').textContent = '';
+  const remaining = lifelineCount[currentTeam];
+  document.getElementById('lifeline-btn').disabled = remaining === 0;
   renderOptions(eliminatedOptions);
   startTimer();
 }
-function updateTimerUI() {
-  const fill = document.getElementById('timer-fill'), num = document.getElementById('timer-number');
-  fill.style.strokeDashoffset = CIRCUMFERENCE * (1 - timeLeft / TIMER_DURATION);
-  num.textContent = timeLeft;
-  fill.classList.remove('warning','danger'); num.classList.remove('warning','danger');
-  if (timeLeft <= 10) { fill.classList.add('danger'); num.classList.add('danger'); }
-  else if (timeLeft <= 20) { fill.classList.add('warning'); num.classList.add('warning'); }
-}
-
 function timeExpired() {
   if (answered) return;
   answered = true;
-  document.getElementById('start-timer-btn').style.display = 'none';
+  document.getElementById('timer-display').style.display = 'none';
   soundWrong();
   const q = questions[currentQ];
-  document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
-  document.querySelectorAll('.option-btn')[q.answer].classList.add('correct');
-  document.getElementById('timer-status').textContent = "Time's up!";
+  const btns = document.querySelectorAll('.option-btn');
+  btns.forEach(b => b.disabled = true);
+  // Find the correct button by its text content
+  btns.forEach(b => { if (b.textContent.includes(q.options[q.answer])) b.classList.add('correct'); });
   document.getElementById('lifeline-btn').disabled = true;
   addLog(currentTeam, "Time's up", 0, 'timeout');
   startSteal();
@@ -470,32 +464,25 @@ function timeExpired() {
 // STEAL
 function startSteal() {
   stealMode = true;
-  document.getElementById('start-timer-btn').style.display = 'none';
-  stealTimeLeft = STEAL_DURATION;
   const otherTeam = currentTeam === 0 ? 1 : 0;
   const banner = document.getElementById('steal-banner');
   banner.style.display = 'block';
   document.getElementById('steal-banner-title').textContent = 'Steal opportunity!';
   document.getElementById('steal-banner-sub').textContent = `${teamNames[otherTeam]} — pick an answer to steal for $${Math.floor(currentPoints / 2)}`;
-  document.getElementById('steal-timer').textContent = stealTimeLeft;
   document.getElementById('t1-card').classList.toggle('stealing', otherTeam === 0);
   document.getElementById('t2-card').classList.toggle('stealing', otherTeam === 1);
   soundSteal();
   renderOptions(eliminatedOptions, true);
-  stealInterval = setInterval(() => {
-    stealTimeLeft--;
-    document.getElementById('steal-timer').textContent = stealTimeLeft;
-    if (stealTimeLeft <= 0) { clearInterval(stealInterval); endSteal(false); }
-  }, 1000);
+  document.getElementById('next-btn').style.display = 'block';
 }
 
-function endSteal(answered) {
+function endSteal(stealAnswered) {
   clearInterval(stealInterval);
   stealMode = false;
   document.getElementById('steal-banner').style.display = 'none';
   document.getElementById('t1-card').classList.remove('stealing');
   document.getElementById('t2-card').classList.remove('stealing');
-  if (!answered) {
+  if (!stealAnswered) {
     const msg = document.getElementById('result-msg');
     msg.className = 'result-msg wrong';
     msg.textContent = `No steal. Correct answer: ${letters[questions[currentQ].answer]}: ${questions[currentQ].options[questions[currentQ].answer]}`;
@@ -516,9 +503,11 @@ function selectSteal(idx) {
   const stealValue = Math.floor(currentPoints / 2);
   const btns = document.querySelectorAll('.option-btn');
   btns.forEach(b => b.disabled = true);
+  const selectedBtn = [...btns].find(b => b.textContent.includes(q.options[idx]));
+  const correctBtn = [...btns].find(b => b.textContent.includes(q.options[q.answer]));
   const msg = document.getElementById('result-msg');
   if (idx === q.answer) {
-    btns[idx].classList.add('correct');
+    if (selectedBtn) selectedBtn.classList.add('correct');
     scores[otherTeam] += stealValue;
     document.getElementById(otherTeam === 0 ? 't1-score' : 't2-score').textContent = `$${scores[otherTeam]}`;
     msg.className = 'result-msg steal';
@@ -526,8 +515,8 @@ function selectSteal(idx) {
     soundCorrect();
     addLog(otherTeam, 'Stolen', stealValue, 'steal');
   } else {
-    btns[idx].classList.add('wrong');
-    btns[q.answer].classList.add('correct');
+    if (selectedBtn) selectedBtn.classList.add('wrong');
+    if (correctBtn) correctBtn.classList.add('correct');
     msg.className = 'result-msg wrong';
     msg.textContent = `Steal failed. Correct answer was ${letters[q.answer]}: ${q.options[q.answer]}`;
     soundWrong();
@@ -555,7 +544,7 @@ function startGame() {
 function loadQuestion() {
   answered = false; lifelineUsedThisQ = false; eliminatedOptions = []; currentPoints = 100; stealMode = false; timerStarted = false;
   document.getElementById('steal-banner').style.display = 'none';
-  document.getElementById('timer-status').textContent = '';
+  document.getElementById('timer-display').style.display = 'none';
   document.getElementById('t1-card').classList.remove('stealing');
   document.getElementById('t2-card').classList.remove('stealing');
   const q = questions[currentQ];
@@ -570,18 +559,14 @@ function loadQuestion() {
   document.getElementById('lifeline-note').textContent = '';
   const remaining = lifelineCount[currentTeam];
   const lb = document.getElementById('lifeline-btn');
-  lb.disabled = remaining === 0;
+  lb.disabled = true;
   lb.textContent = remaining > 0 ? `Remove 2 wrong options (costs $50) — ${remaining} left` : 'No lifelines remaining';
+  document.getElementById('start-timer-btn').style.display = 'inline-block';
   document.getElementById('t1-card').classList.toggle('active', currentTeam === 0);
   document.getElementById('t2-card').classList.toggle('active', currentTeam === 1);
   document.getElementById('turn-name').textContent = teamNames[currentTeam];
   document.getElementById('progress-fill').style.width = (currentQ / questions.length * 100) + '%';
   renderOptions([], false, true);
-  // Reset timer display but don't start it
-  timeLeft = TIMER_DURATION;
-  updateTimerUI();
-  document.getElementById('timer-status').textContent = 'Ready when you are';
-  document.getElementById('start-timer-btn').style.display = 'inline-block';
 }
 
 function renderOptions(elim, isSteal = false, locked = false) {
@@ -603,13 +588,15 @@ function renderOptions(elim, isSteal = false, locked = false) {
 function selectAnswer(idx) {
   if (answered || stealMode || !timerStarted) return;
   answered = true; stopTimer();
-  document.getElementById('start-timer-btn').style.display = 'none';
+  document.getElementById('timer-display').style.display = 'none';
   const q = questions[currentQ];
   const btns = document.querySelectorAll('.option-btn');
   btns.forEach(b => b.disabled = true);
   const msg = document.getElementById('result-msg');
+  const selectedBtn = [...btns].find(b => b.textContent.includes(q.options[idx]));
+  const correctBtn = [...btns].find(b => b.textContent.includes(q.options[q.answer]));
   if (idx === q.answer) {
-    btns[idx].classList.add('correct');
+    if (selectedBtn) selectedBtn.classList.add('correct');
     scores[currentTeam] += currentPoints;
     document.getElementById(currentTeam === 0 ? 't1-score' : 't2-score').textContent = `$${scores[currentTeam]}`;
     msg.className = 'result-msg correct';
@@ -619,8 +606,8 @@ function selectAnswer(idx) {
     document.getElementById('lifeline-btn').disabled = true;
     addLog(currentTeam, 'Correct', currentPoints, 'correct');
   } else {
-    btns[idx].classList.add('wrong');
-    btns[q.answer].classList.add('correct');
+    if (selectedBtn) selectedBtn.classList.add('wrong');
+    if (correctBtn) correctBtn.classList.add('correct');
     msg.className = 'result-msg wrong';
     msg.textContent = `Wrong answer.`;
     msg.style.display = 'block';
@@ -634,7 +621,7 @@ function selectAnswer(idx) {
 }
 
 function useLifeline() {
-  if (lifelineUsedThisQ || answered || lifelineCount[currentTeam] === 0 || stealMode) return;
+  if (lifelineUsedThisQ || answered || lifelineCount[currentTeam] === 0 || stealMode || !timerStarted) return;
   lifelineUsedThisQ = true;
   lifelineCount[currentTeam]--;
   currentPoints = 50;
@@ -707,8 +694,9 @@ function launchConfetti() {
 }
 
 function restartGame() {
-  currentQ = 0; currentTeam = 0; scores = [0,0]; answered = false;
+  currentQ = 0; currentTeam = 0; scores = [0,0]; answered = false; timerStarted = false;
   stopTimer(); clearInterval(stealInterval); lifelineCount = [2,2]; logEntries = [];
+  document.getElementById('timer-display').style.display = 'none';
   document.getElementById('t1-score').textContent = '$0';
   document.getElementById('t2-score').textContent = '$0';
 
