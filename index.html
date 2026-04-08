@@ -339,6 +339,7 @@ let timerInterval = null, timeLeft = TIMER_DURATION;
 let lifelineCount = [2, 2];
 let stealMode = false, stealInterval = null, stealTimeLeft = STEAL_DURATION;
 let logEntries = [];
+let timerStarted = false;
 
 // AUDIO CONTEXT
 let audioCtx = null;
@@ -437,6 +438,7 @@ function stopTimer() { clearInterval(timerInterval); }
 
 function beginTimer() {
   if (answered || stealMode) return;
+  timerStarted = true;
   document.getElementById('start-timer-btn').style.display = 'none';
   document.getElementById('timer-status').textContent = '';
   renderOptions(eliminatedOptions);
@@ -551,7 +553,7 @@ function startGame() {
 }
 
 function loadQuestion() {
-  answered = false; lifelineUsedThisQ = false; eliminatedOptions = []; currentPoints = 100; stealMode = false;
+  answered = false; lifelineUsedThisQ = false; eliminatedOptions = []; currentPoints = 100; stealMode = false; timerStarted = false;
   document.getElementById('steal-banner').style.display = 'none';
   document.getElementById('timer-status').textContent = '';
   document.getElementById('t1-card').classList.remove('stealing');
@@ -599,7 +601,7 @@ function renderOptions(elim, isSteal = false, locked = false) {
 }
 
 function selectAnswer(idx) {
-  if (answered || stealMode) return;
+  if (answered || stealMode || !timerStarted) return;
   answered = true; stopTimer();
   document.getElementById('start-timer-btn').style.display = 'none';
   const q = questions[currentQ];
