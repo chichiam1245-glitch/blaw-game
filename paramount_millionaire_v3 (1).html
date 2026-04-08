@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Who Wants to Be a Millionaire — Paramount v. Hill</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --gold: #C9A84C; --gold-light: #F0D080; --gold-dim: #8A6E2F;
+  --navy: #03113A; --navy-card: #061D5E; --navy-border: #0D2E80;
+  --text-primary: #F4EDD8; --text-secondary: #9AA3B2; --text-dim: #5A6478;
+  --correct-bg: #0D2B1A; --correct-border: #1A6640; --correct-text: #4ADE80;
+  --wrong-bg: #2B0D0D; --wrong-border: #6B2020; --wrong-text: #F87171;
+  --info-bg: #0D1A2B; --info-border: #1A4066; --info-text: #60A5FA;
+  --steal-bg: #1A0D2B; --steal-border: #5B21B6; --steal-text: #C4B5FD;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(--text-primary); min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 2rem 1rem; }
+.game-container { width: 100%; max-width: 860px; }
+.game-header { text-align: center; margin-bottom: 2rem; }
+.game-title { font-family: 'Playfair Display', serif; font-size: 13px; font-weight: 500; color: var(--gold); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 6px; }
+.game-subtitle { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 600; color: var(--text-primary); }
+
+/* SCOREBOARD */
+.scoreboard { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.5rem; }
+.team-card { background: var(--navy-card); border: 1px solid var(--navy-border); border-radius: 12px; padding: 1.25rem 1.5rem; text-align: center; transition: border-color 0.3s, box-shadow 0.3s; }
+.team-card.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-dim); }
+.team-card.stealing { border-color: #7C3AED; box-shadow: 0 0 0 1px #5B21B6; animation: stealPulse 0.6s infinite alternate; }
+@keyframes stealPulse { from { box-shadow: 0 0 0 1px #5B21B6; } to { box-shadow: 0 0 8px 2px #7C3AED; } }
+.team-label { font-size: 11px; color: var(--text-dim); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px; }
+.team-name { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+.team-score { font-size: 32px; font-weight: 500; color: var(--gold); line-height: 1; }
+.team-score-label { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+.active-dot { display: inline-block; width: 6px; height: 6px; background: var(--gold); border-radius: 50%; margin-left: 6px; vertical-align: middle; animation: pulse 1.2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* TIMER */
+.timer-wrap { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 1.25rem; }
+.timer-ring-wrap { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+.timer-svg { transform: rotate(-90deg); }
+.timer-track { fill: none; stroke: var(--navy-border); stroke-width: 4; }
+.timer-fill { fill: none; stroke: var(--gold); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 163; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear, stroke 0.3s; }
+.timer-fill.warning { stroke: #EF9F27; }
+.timer-fill.danger { stroke: #E24B4A; }
+.timer-number { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 18px; font-weight: 500; color: var(--gold); font-family: 'Playfair Display', serif; }
+.timer-number.warning { color: #EF9F27; }
+.timer-number.danger { color: #E24B4A; }
+.timer-status { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+
+/* STEAL BANNER */
+.steal-banner { display: none; background: var(--steal-bg); border: 1px solid var(--steal-border); border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1rem; text-align: center; }
+.steal-banner-title { font-family: 'Playfair Display', serif; font-size: 16px; font-weight: 600; color: var(--steal-text); margin-bottom: 4px; }
+.steal-banner-sub { font-size: 13px; color: #A78BFA; }
+.steal-timer { font-size: 28px; font-weight: 500; color: var(--steal-text); font-family: 'Playfair Display', serif; margin-top: 4px; }
+
+/* PROGRESS */
+.progress-wrap { margin-bottom: 1.25rem; }
+.progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+.progress-bar { height: 2px; background: var(--navy-border); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--gold); border-radius: 2px; transition: width 0.4s ease; }
+
+/* QUESTION */
+.q-card { background: var(--navy-card); border: 1px solid var(--navy-border); border-radius: 16px; padding: 1.75rem; margin-bottom: 1rem; animation: fadeSlide 0.3s ease; }
+@keyframes fadeSlide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.q-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.q-section-tag { font-size: 11px; color: var(--gold-dim); letter-spacing: 0.1em; text-transform: uppercase; background: rgba(201,168,76,0.08); border: 1px solid rgba(201,168,76,0.2); padding: 3px 10px; border-radius: 20px; }
+.q-points-tag { font-size: 12px; font-weight: 500; color: var(--info-text); background: var(--info-bg); border: 1px solid var(--info-border); padding: 3px 12px; border-radius: 20px; transition: all 0.2s; }
+.q-points-tag.halved { color: var(--wrong-text); background: var(--wrong-bg); border-color: var(--wrong-border); }
+.q-text { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 500; color: var(--text-primary); line-height: 1.6; }
+
+/* OPTIONS */
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem; }
+.option-btn { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: var(--navy-card); border: 1px solid var(--navy-border); border-radius: 10px; cursor: pointer; text-align: left; transition: background 0.15s, border-color 0.15s, transform 0.1s; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text-primary); line-height: 1.45; width: 100%; }
+.option-btn:hover:not(:disabled) { background: #0D2875; border-color: #1A3E99; transform: translateY(-1px); }
+.option-btn:disabled { cursor: default; transform: none; }
+.option-letter { font-size: 12px; font-weight: 500; color: var(--gold-dim); background: rgba(201,168,76,0.08); border: 1px solid rgba(201,168,76,0.15); border-radius: 6px; min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.option-btn.correct { background: var(--correct-bg); border-color: var(--correct-border); color: var(--correct-text); }
+.option-btn.correct .option-letter { background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.3); color: var(--correct-text); }
+.option-btn.wrong { background: var(--wrong-bg); border-color: var(--wrong-border); color: var(--wrong-text); }
+.option-btn.wrong .option-letter { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.3); color: var(--wrong-text); }
+.option-btn.eliminated { opacity: 0.2; pointer-events: none; }
+
+/* RESULT */
+.result-msg { font-size: 14px; font-weight: 500; padding: 12px 16px; border-radius: 10px; margin-bottom: 1rem; display: none; line-height: 1.5; }
+.result-msg.correct { background: var(--correct-bg); border: 1px solid var(--correct-border); color: var(--correct-text); }
+.result-msg.wrong { background: var(--wrong-bg); border: 1px solid var(--wrong-border); color: var(--wrong-text); }
+.result-msg.steal { background: var(--steal-bg); border: 1px solid var(--steal-border); color: var(--steal-text); }
+
+/* ACTIONS */
+.actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.lifeline-btn { padding: 9px 18px; border-radius: 8px; border: 1px solid var(--gold-dim); background: rgba(201,168,76,0.06); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--gold); cursor: pointer; transition: background 0.15s, opacity 0.15s; }
+.lifeline-btn:hover:not(:disabled) { background: rgba(201,168,76,0.12); }
+.lifeline-btn:disabled { opacity: 0.35; cursor: default; }
+.lifeline-note { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+.next-btn { margin-left: auto; padding: 9px 22px; border-radius: 8px; border: 1px solid var(--navy-border); background: var(--navy-card); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer; transition: background 0.15s; display: none; }
+.next-btn:hover { background: #0D2875; border-color: #1A3E99; }
+
+/* AUDIO */
+.audio-bar { display: flex; align-items: center; gap: 10px; background: var(--navy-card); border: 1px solid var(--navy-border); border-radius: 10px; padding: 10px 16px; margin-bottom: 0.75rem; font-size: 13px; color: var(--text-secondary); flex-wrap: wrap; }
+.audio-bar input[type=file] { display: none; }
+.audio-label { font-size: 12px; color: var(--gold); font-weight: 500; white-space: nowrap; min-width: 90px; }
+.audio-upload-btn { padding: 5px 14px; border-radius: 6px; border: 1px solid var(--gold-dim); background: rgba(201,168,76,0.06); font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--gold); cursor: pointer; white-space: nowrap; }
+.audio-upload-btn:hover { background: rgba(201,168,76,0.12); }
+.audio-status { font-size: 11px; color: var(--text-dim); flex: 1; }
+.audio-toggle { padding: 5px 14px; border-radius: 6px; border: 1px solid var(--navy-border); background: var(--navy-card); font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text-secondary); cursor: pointer; display: none; white-space: nowrap; }
+.audio-toggle:hover { background: #0D2875; }
+
+/* LEADERBOARD */
+.leaderboard { margin-top: 1.5rem; }
+.leaderboard-title { font-size: 12px; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
+.log-entry { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; font-size: 13px; animation: fadeSlide 0.3s ease; }
+.log-entry.log-correct { background: var(--correct-bg); border: 1px solid var(--correct-border); }
+.log-entry.log-wrong { background: var(--wrong-bg); border: 1px solid var(--wrong-border); }
+.log-entry.log-steal { background: var(--steal-bg); border: 1px solid var(--steal-border); }
+.log-entry.log-timeout { background: #1A1206; border: 1px solid #3D2A0A; }
+.log-qnum { font-size: 11px; color: var(--text-dim); min-width: 28px; }
+.log-team { font-weight: 500; color: var(--text-primary); flex: 1; }
+.log-result { font-size: 12px; }
+.log-entry.log-correct .log-result { color: var(--correct-text); }
+.log-entry.log-wrong .log-result { color: var(--wrong-text); }
+.log-entry.log-steal .log-result { color: var(--steal-text); }
+.log-entry.log-timeout .log-result { color: #EF9F27; }
+.log-dollars { font-weight: 500; color: var(--gold); min-width: 48px; text-align: right; }
+
+/* SETUP */
+.setup-screen { text-align: center; padding: 1rem 0 2rem; }
+.setup-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.setup-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 2rem; line-height: 1.6; }
+.setup-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 2rem; text-align: left; }
+.setup-input-card { background: var(--navy-card); border: 1px solid var(--navy-border); border-radius: 12px; padding: 1.25rem 1.5rem; }
+.setup-label { font-size: 11px; color: var(--text-dim); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
+.setup-name-input { font-family: 'Playfair Display', serif; font-size: 18px; font-weight: 500; color: var(--text-primary); background: transparent; border: none; outline: none; width: 100%; caret-color: var(--gold); }
+.setup-name-input::placeholder { color: var(--text-dim); }
+.setup-rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 2rem; text-align: left; }
+.rule-card { background: var(--navy-card); border: 1px solid var(--navy-border); border-radius: 10px; padding: 1rem; }
+.rule-icon { font-size: 18px; margin-bottom: 6px; }
+.rule-title { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-bottom: 3px; }
+.rule-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.start-btn { padding: 12px 36px; border-radius: 8px; border: 1px solid var(--gold-dim); background: rgba(201,168,76,0.08); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; color: var(--gold); cursor: pointer; transition: background 0.15s; letter-spacing: 0.02em; }
+.start-btn:hover { background: rgba(201,168,76,0.15); }
+
+/* FINAL */
+.final-screen { text-align: center; padding: 1rem 0 2rem; display: none; }
+.final-title { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem; }
+.final-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 2rem; }
+.final-scores { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 2rem; }
+.final-card { background: var(--navy-card); border: 1px solid var(--navy-border); border-radius: 16px; padding: 2rem 1.5rem; }
+.final-card.winner { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-dim); }
+.winner-badge { display: inline-block; font-size: 11px; font-weight: 500; color: var(--gold); background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.25); padding: 3px 12px; border-radius: 20px; margin-bottom: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.tie-badge { display: inline-block; font-size: 11px; color: var(--text-secondary); background: var(--navy-border); padding: 3px 12px; border-radius: 20px; margin-bottom: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.final-team-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.final-team-score { font-size: 40px; font-weight: 500; color: var(--gold); }
+.final-pts-label { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.winner-score-anim { animation: scorePop 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+@keyframes scorePop { 0%{transform:scale(1)} 50%{transform:scale(1.4);color:#F0D080} 100%{transform:scale(1.15)} }
+.restart-btn { padding: 11px 32px; border-radius: 8px; border: 1px solid var(--navy-border); background: var(--navy-card); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; color: var(--text-primary); cursor: pointer; transition: background 0.15s; }
+.restart-btn:hover { background: #0D2875; }
+
+.turn-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 1rem; font-size: 13px; color: var(--text-secondary); }
+.turn-name { font-weight: 500; color: var(--gold); }
+#confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; display: none; }
+
+@media (max-width: 600px) {
+  .options-grid { grid-template-columns: 1fr; }
+  .setup-inputs { grid-template-columns: 1fr; }
+  .setup-rules { grid-template-columns: 1fr 1fr; }
+  .final-scores { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<canvas id="confetti-canvas"></canvas>
+<div class="game-container">
+
+  <div class="game-header">
+    <p class="game-title">Who wants to be a millionaire</p>
+    <p class="game-subtitle">Paramount Life Insurance v. Hill</p>
+  </div>
+
+  <!-- AUDIO -->
+  <div class="audio-bar">
+    <span>🎵</span><span class="audio-label">Intro music</span>
+    <span class="audio-status" id="intro-status">No file loaded</span>
+    <label class="audio-upload-btn" for="intro-upload">Load MP3</label>
+    <input type="file" id="intro-upload" accept="audio/*" onchange="loadIntro(event)" />
+    <button class="audio-toggle" id="intro-toggle" onclick="toggleIntro()">Play</button>
+  </div>
+  <div class="audio-bar">
+    <span>🎮</span><span class="audio-label">Game music</span>
+    <span class="audio-status" id="game-status">No file loaded</span>
+    <label class="audio-upload-btn" for="game-upload">Load MP3</label>
+    <input type="file" id="game-upload" accept="audio/*" onchange="loadGame(event)" />
+    <button class="audio-toggle" id="game-toggle" onclick="toggleGame()">Play</button>
+  </div>
+  <audio id="intro-audio" loop></audio>
+  <audio id="game-audio" loop></audio>
+
+  <!-- SETUP -->
+  <div id="setup-screen" class="setup-screen">
+    <p class="setup-title">Enter team names to begin</p>
+    <p class="setup-sub">20 questions · 2 teams · 10 each · 45 seconds · steal on wrong answers</p>
+    <div class="setup-inputs">
+      <div class="setup-input-card"><p class="setup-label">Team 1</p><input class="setup-name-input" id="t1-name" value="Team Paramount" maxlength="24" /></div>
+      <div class="setup-input-card"><p class="setup-label">Team 2</p><input class="setup-name-input" id="t2-name" value="Team Hill" maxlength="24" /></div>
+    </div>
+    <div class="setup-rules">
+      <div class="rule-card"><div class="rule-icon">🏆</div><p class="rule-title">$100 per question</p><p class="rule-desc">Correct answer, no lifeline used</p></div>
+      <div class="rule-card"><div class="rule-icon">🔍</div><p class="rule-title">Lifeline — $50</p><p class="rule-desc">2 per team total. Removes 2 wrong options. Halves dollar value</p></div>
+      <div class="rule-card"><div class="rule-icon">⚡</div><p class="rule-title">Steal</p><p class="rule-desc">Wrong answer or time's up? Other team gets 10 seconds to steal for half value</p></div>
+    </div>
+    <button class="start-btn" onclick="startGame()">Start game →</button>
+  </div>
+
+  <!-- GAME -->
+  <div id="game-screen" style="display:none;">
+    <div class="scoreboard">
+      <div class="team-card" id="t1-card">
+        <p class="team-label">Team 1</p>
+        <p class="team-name" id="t1-display">Team Paramount</p>
+        <p class="team-score" id="t1-score">$0</p>
+        <p class="team-score-label">dollars</p>
+      </div>
+      <div class="team-card" id="t2-card">
+        <p class="team-label">Team 2</p>
+        <p class="team-name" id="t2-display">Team Hill</p>
+        <p class="team-score" id="t2-score">$0</p>
+        <p class="team-score-label">dollars</p>
+      </div>
+    </div>
+
+    <div class="timer-wrap">
+      <div class="timer-ring-wrap">
+        <svg class="timer-svg" width="64" height="64" viewBox="0 0 64 64">
+          <circle class="timer-track" cx="32" cy="32" r="26"/>
+          <circle class="timer-fill" id="timer-fill" cx="32" cy="32" r="26"/>
+        </svg>
+        <span class="timer-number" id="timer-number">45</span>
+      </div>
+      <span class="timer-status" id="timer-status"></span>
+    </div>
+
+    <div class="steal-banner" id="steal-banner">
+      <p class="steal-banner-title" id="steal-banner-title">Steal opportunity!</p>
+      <p class="steal-banner-sub" id="steal-banner-sub">Team Hill — pick an answer to steal for $50</p>
+      <p class="steal-timer" id="steal-timer">10</p>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span id="q-meta">Question 1 of 20</span>
+        <span id="q-section-meta">Facts of the case</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="turn-bar">
+      <span>Current turn:</span>
+      <span class="turn-name" id="turn-name">Team Paramount</span>
+      <span class="active-dot"></span>
+    </div>
+
+    <div class="q-card">
+      <div class="q-top">
+        <span class="q-section-tag" id="q-section-tag">Facts of the case</span>
+        <span class="q-points-tag" id="q-points-tag">$100</span>
+      </div>
+      <p class="q-text" id="q-text"></p>
+    </div>
+
+    <div class="options-grid" id="options-grid"></div>
+    <div class="result-msg" id="result-msg"></div>
+
+    <div class="actions">
+      <button class="lifeline-btn" id="lifeline-btn" onclick="useLifeline()">Remove 2 wrong options (costs $50) — 2 left</button>
+      <button class="lifeline-btn" id="start-timer-btn" onclick="beginTimer()" style="display:none; border-color:#4ADE80; color:#4ADE80; background:rgba(74,222,128,0.06);">▶ Start Timer</button>
+      <button class="next-btn" id="next-btn" onclick="nextQuestion()">Next question →</button>
+    </div>
+    <p class="lifeline-note" id="lifeline-note"></p>
+
+
+  </div>
+
+  <!-- FINAL -->
+  <div class="final-screen" id="final-screen">
+    <p class="final-title">Game over</p>
+    <p class="final-sub" id="final-sub">Here's how it ended</p>
+    <div class="final-scores">
+      <div class="final-card" id="final-t1-card">
+        <p class="final-team-name" id="final-t1-name">Team Paramount</p>
+        <p class="final-team-score" id="final-t1-score">$0</p>
+        <p class="final-pts-label">dollars</p>
+      </div>
+      <div class="final-card" id="final-t2-card">
+        <p class="final-team-name" id="final-t2-name">Team Hill</p>
+        <p class="final-team-score" id="final-t2-score">$0</p>
+        <p class="final-pts-label">dollars</p>
+      </div>
+    </div>
+    <button class="restart-btn" onclick="restartGame()">Play again</button>
+  </div>
+</div>
+
+<script>
+const questions = [
+  { section:"Facts of the case", q:"What was the sequence of events that ultimately led to Paramount holding a mortgage on Mrs. Hill's property?", options:["Paramount lent money to Mr. Hill → Mr. Hill forged documents → property transferred to Laidlaw","Laidlaw approached Paramount → Paramount contacted Mr. Hill → transfer was arranged","Mrs. Hill signed the transfer → Laidlaw defaulted → Paramount registered a mortgage","Mr. Hill forged Mrs. Hill's signature → property transferred to Laidlaw → Paramount lent Laidlaw mortgage money"], answer:3 },
+  { section:"Facts of the case", q:"Why did Eamon initially reject the transfer document the first time Mr. Hill brought it in?", options:["Laidlaw was not present at the meeting","The document was missing a witness signature","The signature did not match Mrs. Hill's records","The transfer was submitted without the mortgage document"], answer:1 },
+  { section:"Facts of the case", q:"On what date did the Alberta Court of Appeal issue its decision, and what was the outcome?", options:["December 17, 1986 — dismissed Paramount's appeal, mortgage was void","March 4, 1985 — allowed Paramount's appeal, mortgage was valid","December 17, 1986 — allowed Paramount's appeal, mortgage was valid","March 4, 1985 — dismissed Paramount's appeal, mortgage was void"], answer:2 },
+  { section:"Facts of the case", q:"In what year did the events of this case take place?", options:["1977","1983","1971","1965"], answer:0 },
+  { section:"Facts of the case", q:"What arrangement did Laidlaw propose to help Mr. Hill access mortgage money?", options:["Laidlaw would lend Mr. Hill money personally","Laidlaw would buy the house from the Hills and take out the mortgage himself","Laidlaw would co-sign a mortgage with Mr. Hill directly","Laidlaw would approach Paramount on Mr. Hill's behalf without a transfer"], answer:1 },
+  { section:"Facts of the case", q:"How did Mrs. Hill discover that her property had been transferred without her consent?", options:["She found the forged documents in Mr. Hill's belongings","Foreclosure notices were placed on her door and she confronted Laidlaw at Mr. Hill's funeral","Paramount notified her directly when payments stopped","She received a letter from the Land Titles Office"], answer:1 },
+  { section:"Facts of the case", q:"After discovering the forgery, what did Laidlaw do with the property?", options:["He kept the property and continued foreclosure proceedings","He handed the property over to Paramount","He sold the property to a third party","He transferred the property back to Mrs. Hill"], answer:3 },
+  { section:"Legal reasoning & decision", q:"What was the trial judge's reason for ruling that Paramount should not be protected?", options:["Eamon's negligence was directly attributed to Paramount","Paramount had knowledge of the forgery before registration","Paramount did not rely on a Certificate of Title when registering the mortgage","The mortgage documents were submitted alongside a fraudulent transfer"], answer:2 },
+  { section:"Legal reasoning & decision", q:"On what grounds did the Court of Appeal overturn the trial judge's decision?", options:["It found Eamon was acting outside his mandate and Paramount bore no responsibility","It found Mrs. Hill had implicitly consented to the transfer","It held that registration alone is sufficient for protection, and a Certificate of Title is not required","It ruled that Laidlaw's good faith neutralized the effect of the forgery"], answer:2 },
+  { section:"Legal reasoning & decision", q:"The Court of Appeal held that even though the transfer was forged, Laidlaw became the legal owner. Why?", options:["Under the Torrens system, registration confers legal ownership regardless of fraud in the underlying document","Laidlaw paid full market value for the property","Mr. Hill had implied authority to sign on Mrs. Hill's behalf","The forgery was not discovered until after the mortgage was registered"], answer:0 },
+  { section:"Legal reasoning & decision", q:"Why did the fraud exception to indefeasibility not protect Mrs. Hill against Paramount's mortgage?", options:["The exception only applies when the original owner also committed fraud","Paramount itself had not committed fraud — the exception requires fraud by the party claiming indefeasibility","Mrs. Hill failed to raise the fraud argument at trial","The fraud occurred too long before the court proceedings to be actionable"], answer:1 },
+  { section:"Facts of the case", q:"What was the purpose of the mortgage Paramount registered on the property?", options:["To finance renovations Mr. Hill was making to the family home","To cover legal fees arising from the Hills' divorce proceedings","To secure a loan Laidlaw took out after acquiring title to the Hills' property","To refinance an existing mortgage Mrs. Hill had taken out years earlier"], answer:2 },
+  { section:"Legal reasoning & decision", q:"Mrs. Hill argued her case under section 195 of the Land Titles Act. What did she claim this section required?", options:["That the Assurance Fund must be exhausted before a lender can claim protection","That indefeasibility only applies once a physical Certificate of Title has been issued to the transferee","That a mortgagee must independently verify the transferor's consent before registering","That fraud in the chain of title automatically voids any subsequent mortgage"], answer:1 },
+  { section:"Lecture concepts", q:"In the context of this case, what does foreclosure mean?", options:["Mrs. Hill reclaiming her home through a court order after the forgery was revealed","The government seizing Mrs. Hill's property for unpaid property taxes","The Land Titles Office cancelling the mortgage registration due to fraud","Paramount moving to take possession of the property after Laidlaw defaulted on the mortgage"], answer:3 },
+  { section:"Lecture concepts", q:"Under the Torrens system, a fraudster forges a signature and transfers a property to an innocent third party who registers the title. The original owner sues to recover the property. What is the most likely outcome?", options:["The court splits the property value between the two innocent parties","The Land Titles Office cancels both interests and reissues title to the Crown","The third party keeps the property and the original owner is directed to the Assurance Fund","The original owner recovers the property because fraud voids all subsequent dealings"], answer:2 },
+  { section:"Lecture concepts", q:"Under the Torrens system, what is the legal significance of a document being registered with the Land Titles Office?", options:["It makes the registered interest conclusive and enforceable against the rest of the world","It creates a rebuttable presumption of ownership that can be overturned in court","It has no legal effect until a Certificate of Title is physically issued to the new owner","It places the burden of proof on any party challenging the registered owner's title"], answer:0 },
+  { section:"Lecture concepts", q:"What was the first song used in the videos?", options:["\"Banana Pancakes\" by Jack Johnson","\"Would?\" by Alice in Chains","\"Sabotage\" by Beastie Boys","\"Better Together\" by Jack Johnson"], answer:3 },
+  { section:"Lecture concepts", q:"What does the Land Titles Assurance Fund exist to do?", options:["Compensate innocent parties who suffer loss as a result of the land titles registration system","Fund audits of the Alberta Land Titles Office","Insure solicitors against malpractice claims in real estate transactions","Compensate lenders who lose money due to borrower default"], answer:0 },
+  { section:"Lecture concepts", q:"What is the purpose of a court's preliminary order of foreclosure in the two-step foreclosure process?", options:["It sets a time limit within which the mortgagor may redeem the property by paying off what is owed","It authorizes the second mortgagee to sell the property at auction without delay","It immediately transfers title and possession from the mortgagor to the mortgagee","It voids all second mortgages registered on the property"], answer:0 },
+  { section:"Lecture concepts", q:"What does indefeasibility of title mean?", options:["Title can be challenged by any prior owner within 10 years","Title is valid only after a court confirms it","The government repays any financial loss caused by a defective title","The registered title is conclusive and cannot be defeated except in very limited circumstances"], answer:3 }
+];
+
+const letters = ['A','B','C','D'];
+const TIMER_DURATION = 45;
+const CIRCUMFERENCE = 163;
+const STEAL_DURATION = 10;
+
+let currentQ = 0, currentTeam = 0;
+let scores = [0, 0];
+let teamNames = ['Team Paramount', 'Team Hill'];
+let lifelineUsedThisQ = false, answered = false;
+let currentPoints = 100, eliminatedOptions = [];
+let timerInterval = null, timeLeft = TIMER_DURATION;
+let lifelineCount = [2, 2];
+let stealMode = false, stealInterval = null, stealTimeLeft = STEAL_DURATION;
+let logEntries = [];
+
+// AUDIO CONTEXT
+let audioCtx = null;
+function getCtx() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+
+function playTone(freq, dur, type='sine', vol=0.3, delay=0) {
+  try {
+    const ctx = getCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+    gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + delay + 0.01);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + delay + dur);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + dur + 0.05);
+  } catch(e) {}
+}
+
+function soundCorrect() {
+  playTone(523, 0.12, 'sine', 0.3);
+  playTone(659, 0.12, 'sine', 0.3, 0.12);
+  playTone(784, 0.25, 'sine', 0.3, 0.24);
+}
+
+function soundWrong() {
+  playTone(200, 0.15, 'sawtooth', 0.25);
+  playTone(150, 0.25, 'sawtooth', 0.25, 0.15);
+}
+
+function soundSteal() {
+  playTone(440, 0.08, 'sine', 0.2);
+  playTone(550, 0.08, 'sine', 0.2, 0.1);
+  playTone(440, 0.08, 'sine', 0.2, 0.2);
+}
+
+function soundTick() { playTone(880, 0.05, 'sine', 0.15); }
+
+function soundWinner() {
+  [523,659,784,1047].forEach((f,i) => playTone(f, 0.2, 'sine', 0.25, i*0.12));
+}
+
+// AUDIO FILES
+function loadIntro(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const audio = document.getElementById('intro-audio');
+  audio.src = URL.createObjectURL(file);
+  document.getElementById('intro-status').textContent = file.name;
+  const btn = document.getElementById('intro-toggle');
+  btn.style.display = 'inline-block';
+  audio.play(); btn.textContent = 'Pause';
+}
+function toggleIntro() {
+  const a = document.getElementById('intro-audio'), b = document.getElementById('intro-toggle');
+  if (a.paused) { a.play(); b.textContent = 'Pause'; } else { a.pause(); b.textContent = 'Play'; }
+}
+function loadGame(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const audio = document.getElementById('game-audio');
+  audio.src = URL.createObjectURL(file);
+  document.getElementById('game-status').textContent = file.name;
+  document.getElementById('game-toggle').style.display = 'inline-block';
+}
+function toggleGame() {
+  const a = document.getElementById('game-audio'), b = document.getElementById('game-toggle');
+  if (a.paused) { a.play(); b.textContent = 'Pause'; } else { a.pause(); b.textContent = 'Play'; }
+}
+function switchToGameAudio() {
+  const intro = document.getElementById('intro-audio'), game = document.getElementById('game-audio');
+  intro.pause(); intro.currentTime = 0;
+  document.getElementById('intro-toggle').textContent = 'Play';
+  if (game.src && game.src !== window.location.href) { game.play(); document.getElementById('game-toggle').textContent = 'Pause'; }
+}
+function switchToIntroAudio() {
+  const intro = document.getElementById('intro-audio'), game = document.getElementById('game-audio');
+  game.pause(); game.currentTime = 0;
+  document.getElementById('game-toggle').textContent = 'Play';
+  if (intro.src && intro.src !== window.location.href) { intro.play(); document.getElementById('intro-toggle').textContent = 'Pause'; }
+}
+
+// TIMER
+function startTimer() {
+  clearInterval(timerInterval);
+  timeLeft = TIMER_DURATION;
+  updateTimerUI();
+  document.getElementById('timer-status').textContent = '';
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerUI();
+    if (timeLeft <= 10 && timeLeft > 0) soundTick();
+    if (timeLeft <= 0) { clearInterval(timerInterval); timeExpired(); }
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); }
+
+function beginTimer() {
+  if (answered || stealMode) return;
+  document.getElementById('start-timer-btn').style.display = 'none';
+  document.getElementById('timer-status').textContent = '';
+  renderOptions(eliminatedOptions);
+  startTimer();
+}
+function updateTimerUI() {
+  const fill = document.getElementById('timer-fill'), num = document.getElementById('timer-number');
+  fill.style.strokeDashoffset = CIRCUMFERENCE * (1 - timeLeft / TIMER_DURATION);
+  num.textContent = timeLeft;
+  fill.classList.remove('warning','danger'); num.classList.remove('warning','danger');
+  if (timeLeft <= 10) { fill.classList.add('danger'); num.classList.add('danger'); }
+  else if (timeLeft <= 20) { fill.classList.add('warning'); num.classList.add('warning'); }
+}
+
+function timeExpired() {
+  if (answered) return;
+  answered = true;
+  document.getElementById('start-timer-btn').style.display = 'none';
+  soundWrong();
+  const q = questions[currentQ];
+  document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+  document.querySelectorAll('.option-btn')[q.answer].classList.add('correct');
+  document.getElementById('timer-status').textContent = "Time's up!";
+  document.getElementById('lifeline-btn').disabled = true;
+  addLog(currentTeam, "Time's up", 0, 'timeout');
+  startSteal();
+}
+
+// STEAL
+function startSteal() {
+  stealMode = true;
+  document.getElementById('start-timer-btn').style.display = 'none';
+  stealTimeLeft = STEAL_DURATION;
+  const otherTeam = currentTeam === 0 ? 1 : 0;
+  const banner = document.getElementById('steal-banner');
+  banner.style.display = 'block';
+  document.getElementById('steal-banner-title').textContent = 'Steal opportunity!';
+  document.getElementById('steal-banner-sub').textContent = `${teamNames[otherTeam]} — pick an answer to steal for $${Math.floor(currentPoints / 2)}`;
+  document.getElementById('steal-timer').textContent = stealTimeLeft;
+  document.getElementById('t1-card').classList.toggle('stealing', otherTeam === 0);
+  document.getElementById('t2-card').classList.toggle('stealing', otherTeam === 1);
+  soundSteal();
+  renderOptions(eliminatedOptions, true);
+  stealInterval = setInterval(() => {
+    stealTimeLeft--;
+    document.getElementById('steal-timer').textContent = stealTimeLeft;
+    if (stealTimeLeft <= 0) { clearInterval(stealInterval); endSteal(false); }
+  }, 1000);
+}
+
+function endSteal(answered) {
+  clearInterval(stealInterval);
+  stealMode = false;
+  document.getElementById('steal-banner').style.display = 'none';
+  document.getElementById('t1-card').classList.remove('stealing');
+  document.getElementById('t2-card').classList.remove('stealing');
+  if (!answered) {
+    const msg = document.getElementById('result-msg');
+    msg.className = 'result-msg wrong';
+    msg.textContent = `No steal. Correct answer: ${letters[questions[currentQ].answer]}: ${questions[currentQ].options[questions[currentQ].answer]}`;
+    msg.style.display = 'block';
+    document.getElementById('next-btn').style.display = 'block';
+    renderOptions(eliminatedOptions);
+  }
+}
+
+function selectSteal(idx) {
+  clearInterval(stealInterval);
+  stealMode = false;
+  document.getElementById('steal-banner').style.display = 'none';
+  document.getElementById('t1-card').classList.remove('stealing');
+  document.getElementById('t2-card').classList.remove('stealing');
+  const otherTeam = currentTeam === 0 ? 1 : 0;
+  const q = questions[currentQ];
+  const stealValue = Math.floor(currentPoints / 2);
+  const btns = document.querySelectorAll('.option-btn');
+  btns.forEach(b => b.disabled = true);
+  const msg = document.getElementById('result-msg');
+  if (idx === q.answer) {
+    btns[idx].classList.add('correct');
+    scores[otherTeam] += stealValue;
+    document.getElementById(otherTeam === 0 ? 't1-score' : 't2-score').textContent = `$${scores[otherTeam]}`;
+    msg.className = 'result-msg steal';
+    msg.textContent = `Stolen! ${teamNames[otherTeam]} gets +$${stealValue}!`;
+    soundCorrect();
+    addLog(otherTeam, 'Stolen', stealValue, 'steal');
+  } else {
+    btns[idx].classList.add('wrong');
+    btns[q.answer].classList.add('correct');
+    msg.className = 'result-msg wrong';
+    msg.textContent = `Steal failed. Correct answer was ${letters[q.answer]}: ${q.options[q.answer]}`;
+    soundWrong();
+    addLog(otherTeam, 'Steal failed', 0, 'wrong');
+  }
+  msg.style.display = 'block';
+  document.getElementById('next-btn').style.display = 'block';
+}
+
+// GAME
+function startGame() {
+  const t1 = document.getElementById('t1-name').value.trim() || 'Team Paramount';
+  const t2 = document.getElementById('t2-name').value.trim() || 'Team Hill';
+  teamNames = [t1, t2];
+  document.getElementById('t1-display').textContent = t1;
+  document.getElementById('t2-display').textContent = t2;
+  document.getElementById('final-t1-name').textContent = t1;
+  document.getElementById('final-t2-name').textContent = t2;
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+  switchToGameAudio();
+  loadQuestion();
+}
+
+function loadQuestion() {
+  answered = false; lifelineUsedThisQ = false; eliminatedOptions = []; currentPoints = 100; stealMode = false;
+  document.getElementById('steal-banner').style.display = 'none';
+  document.getElementById('timer-status').textContent = '';
+  document.getElementById('t1-card').classList.remove('stealing');
+  document.getElementById('t2-card').classList.remove('stealing');
+  const q = questions[currentQ];
+  document.getElementById('q-meta').textContent = `Question ${currentQ + 1} of ${questions.length}`;
+  document.getElementById('q-section-meta').textContent = q.section;
+  document.getElementById('q-section-tag').textContent = q.section;
+  document.getElementById('q-text').textContent = q.q;
+  const ptTag = document.getElementById('q-points-tag');
+  ptTag.textContent = '$100'; ptTag.classList.remove('halved');
+  document.getElementById('result-msg').style.display = 'none';
+  document.getElementById('next-btn').style.display = 'none';
+  document.getElementById('lifeline-note').textContent = '';
+  const remaining = lifelineCount[currentTeam];
+  const lb = document.getElementById('lifeline-btn');
+  lb.disabled = remaining === 0;
+  lb.textContent = remaining > 0 ? `Remove 2 wrong options (costs $50) — ${remaining} left` : 'No lifelines remaining';
+  document.getElementById('t1-card').classList.toggle('active', currentTeam === 0);
+  document.getElementById('t2-card').classList.toggle('active', currentTeam === 1);
+  document.getElementById('turn-name').textContent = teamNames[currentTeam];
+  document.getElementById('progress-fill').style.width = (currentQ / questions.length * 100) + '%';
+  renderOptions([], false, true);
+  // Reset timer display but don't start it
+  timeLeft = TIMER_DURATION;
+  updateTimerUI();
+  document.getElementById('timer-status').textContent = 'Ready when you are';
+  document.getElementById('start-timer-btn').style.display = 'inline-block';
+}
+
+function renderOptions(elim, isSteal = false, locked = false) {
+  const q = questions[currentQ];
+  const grid = document.getElementById('options-grid');
+  grid.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    if (elim.includes(i)) { btn.classList.add('eliminated'); btn.disabled = true; return; }
+    btn.innerHTML = `<span class="option-letter">${letters[i]}</span><span>${opt}</span>`;
+    if (isSteal) btn.onclick = () => selectSteal(i);
+    else btn.onclick = () => selectAnswer(i);
+    if (locked || (answered && !isSteal)) btn.disabled = true;
+    grid.appendChild(btn);
+  });
+}
+
+function selectAnswer(idx) {
+  if (answered || stealMode) return;
+  answered = true; stopTimer();
+  document.getElementById('start-timer-btn').style.display = 'none';
+  const q = questions[currentQ];
+  const btns = document.querySelectorAll('.option-btn');
+  btns.forEach(b => b.disabled = true);
+  const msg = document.getElementById('result-msg');
+  if (idx === q.answer) {
+    btns[idx].classList.add('correct');
+    scores[currentTeam] += currentPoints;
+    document.getElementById(currentTeam === 0 ? 't1-score' : 't2-score').textContent = `$${scores[currentTeam]}`;
+    msg.className = 'result-msg correct';
+    msg.textContent = `Correct! +$${currentPoints} for ${teamNames[currentTeam]}.`;
+    soundCorrect();
+    document.getElementById('next-btn').style.display = 'block';
+    document.getElementById('lifeline-btn').disabled = true;
+    addLog(currentTeam, 'Correct', currentPoints, 'correct');
+  } else {
+    btns[idx].classList.add('wrong');
+    btns[q.answer].classList.add('correct');
+    msg.className = 'result-msg wrong';
+    msg.textContent = `Wrong answer.`;
+    msg.style.display = 'block';
+    soundWrong();
+    document.getElementById('lifeline-btn').disabled = true;
+    addLog(currentTeam, 'Wrong', 0, 'wrong');
+    startSteal();
+    return;
+  }
+  msg.style.display = 'block';
+}
+
+function useLifeline() {
+  if (lifelineUsedThisQ || answered || lifelineCount[currentTeam] === 0 || stealMode) return;
+  lifelineUsedThisQ = true;
+  lifelineCount[currentTeam]--;
+  currentPoints = 50;
+  const ptTag = document.getElementById('q-points-tag');
+  ptTag.textContent = '$50'; ptTag.classList.add('halved');
+  document.getElementById('lifeline-btn').disabled = true;
+  document.getElementById('lifeline-btn').textContent = `Lifeline used — ${lifelineCount[currentTeam]} remaining`;
+  document.getElementById('lifeline-note').textContent = 'Two wrong options removed. This question is now worth $50.';
+  const q = questions[currentQ];
+  const wrong = [0,1,2,3].filter(i => i !== q.answer).sort(() => Math.random() - 0.5);
+  eliminatedOptions = [wrong[0], wrong[1]];
+  renderOptions(eliminatedOptions);
+}
+
+function addLog(team, result, dollars, type) {
+  logEntries.push({ q: currentQ + 1, team, result, dollars, type });
+}
+
+function nextQuestion() {
+  clearInterval(stealInterval);
+  currentTeam = currentTeam === 0 ? 1 : 0;
+  currentQ++;
+  if (currentQ >= questions.length) { showFinal(); return; }
+  loadQuestion();
+}
+
+function showFinal() {
+  stopTimer(); clearInterval(stealInterval);
+  switchToIntroAudio();
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('final-screen').style.display = 'block';
+  document.getElementById('final-t1-score').textContent = `$${scores[0]}`;
+  document.getElementById('final-t2-score').textContent = `$${scores[1]}`;
+  const c1 = document.getElementById('final-t1-card'), c2 = document.getElementById('final-t2-card');
+  c1.classList.remove('winner'); c2.classList.remove('winner');
+  document.querySelectorAll('.winner-badge,.tie-badge').forEach(b => b.remove());
+  let sub = '', winnerIdx = -1;
+  if (scores[0] > scores[1]) {
+    c1.classList.add('winner'); c1.insertAdjacentHTML('afterbegin','<p class="winner-badge">Winner</p>');
+    document.getElementById('final-t1-score').classList.add('winner-score-anim');
+    sub = `${teamNames[0]} wins!`; winnerIdx = 0;
+  } else if (scores[1] > scores[0]) {
+    c2.classList.add('winner'); c2.insertAdjacentHTML('afterbegin','<p class="winner-badge">Winner</p>');
+    document.getElementById('final-t2-score').classList.add('winner-score-anim');
+    sub = `${teamNames[1]} wins!`; winnerIdx = 1;
+  } else {
+    c1.insertAdjacentHTML('afterbegin','<p class="tie-badge">Tie</p>');
+    c2.insertAdjacentHTML('afterbegin','<p class="tie-badge">Tie</p>');
+    sub = "It's a tie!";
+  }
+  document.getElementById('final-sub').textContent = sub;
+  if (winnerIdx >= 0) { soundWinner(); setTimeout(launchConfetti, 400); }
+}
+
+function launchConfetti() {
+  const canvas = document.getElementById('confetti-canvas');
+  canvas.style.display = 'block'; canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#C9A84C','#F0D080','#4ADE80','#60A5FA','#F87171','#FBBF24','#A78BFA','#34D399','#FB923C'];
+  const particles = Array.from({length:220}, () => ({ x:Math.random()*canvas.width, y:Math.random()*-canvas.height, w:Math.random()*12+5, h:Math.random()*7+3, color:colors[Math.floor(Math.random()*colors.length)], rotation:Math.random()*360, rotSpeed:(Math.random()-0.5)*7, speedY:Math.random()*4+2, speedX:(Math.random()-0.5)*3, opacity:1 }));
+  let frame = 0;
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p => { ctx.save(); ctx.translate(p.x+p.w/2,p.y+p.h/2); ctx.rotate(p.rotation*Math.PI/180); ctx.globalAlpha=Math.max(0,p.opacity); ctx.fillStyle=p.color; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore(); p.y+=p.speedY; p.x+=p.speedX; p.rotation+=p.rotSpeed; if(frame>100) p.opacity-=0.01; });
+    frame++;
+    if (frame < 250) requestAnimationFrame(draw);
+    else { ctx.clearRect(0,0,canvas.width,canvas.height); canvas.style.display='none'; }
+  }
+  draw();
+}
+
+function restartGame() {
+  currentQ = 0; currentTeam = 0; scores = [0,0]; answered = false;
+  stopTimer(); clearInterval(stealInterval); lifelineCount = [2,2]; logEntries = [];
+  document.getElementById('t1-score').textContent = '$0';
+  document.getElementById('t2-score').textContent = '$0';
+
+  document.getElementById('final-t1-card').classList.remove('winner');
+  document.getElementById('final-t2-card').classList.remove('winner');
+  document.getElementById('final-t1-score').classList.remove('winner-score-anim');
+  document.getElementById('final-t2-score').classList.remove('winner-score-anim');
+  document.querySelectorAll('.winner-badge,.tie-badge').forEach(b => b.remove());
+  document.getElementById('final-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'block';
+  switchToIntroAudio();
+}
+</script>
+</body>
+</html>
